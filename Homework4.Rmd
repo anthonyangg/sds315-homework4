@@ -1,0 +1,263 @@
+---
+title: "Homework 4"
+author: "Anthony Yang"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.height=3, fig.width=7, warning=FALSE, message=FALSE, tidy=TRUE, tidy.opts=list(width.cutoff=100))
+
+ebay <- read.csv('ebay.csv')
+gasprices <- read.csv('gasprices.csv')
+nbc <- read.csv('nbc_pilotsurvey.csv')
+sclass <- read.csv('sclass.csv')
+
+suppressWarnings({
+  suppressPackageStartupMessages(library(ggplot2))
+  suppressPackageStartupMessages(library(tidyverse))
+  suppressPackageStartupMessages(library(dplyr))
+  suppressPackageStartupMessages(library(mosaic)) 
+})
+```
+
+Link to GitHub Repository: https://github.com/anthonyangg/sds315-homework4
+
+## Problem 1
+
+
+### Theory A Evaluation
+
+Theory A states that gas stations charge more if there's a lack of direct competitors in sight.
+
+```{r echo=FALSE}
+boot_competition_prices = do(10000) * diffmean(Price~Competitors, data=resample(gasprices))
+
+ggplot() + geom_histogram(data=boot_competition_prices, aes(diffmean))
+
+confint(boot_competition_prices, level = 0.95)
+```
+
+When examining at the bootstrapped data of the price vs. competitors' presence, the difference in gas prices between the absence of competitors and presence of competitors is between -5 cents and 1 cent at a 95% level of confidence making this difference statistically insignificant because 0 is included in this interval. Therefore, this theory that gas stations charge more if there's a lack of direct competitors in sight is unsupported by the data. 
+
+
+### Theory B Evaluation
+
+Theory B states that the richer the area the gas stations are located in, the higher the gas prices.
+
+```{r echo=FALSE}
+reg <- lm(formula = Price ~ Income, data = gasprices)
+
+coeff <- coefficients(reg)
+intercept <- coeff[1]
+slope <- coeff[2]
+
+ggplot(gasprices, aes(x=Income, y=Price)) + geom_point() + xlab("Income ($)") + 
+  ylab("Gas Prices ($)") + ggtitle("Gas Prices based on income of location") + 
+  geom_abline(intercept = intercept, slope = slope, color = 'blue', linetype = 'solid') +
+  theme_classic()
+```
+
+There is a weak association between gas prices and income of the area in which the gas stations are located in with a r value of `r round(cor(gasprices$Income, gasprices$Price),3)`. Because there is a weak association between the two variables, it is hard to say that this theory is supported by the data. 
+
+
+### Theory C Evaluation
+
+Theory C states that gas stations located at stoplights charge more.
+
+```{r echo=FALSE}
+boot_stoplights_price = do(10000) * diffmean(Price ~ Stoplight, data = resample(gasprices))
+
+ggplot() + geom_histogram(data=boot_stoplights_price, aes(diffmean))
+
+confint(boot_stoplights_price, level=0.95)
+```
+
+When examining the bootstrapped data of the price vs. stoplights' presence, the difference in gas prices between the presence and absence of stoplights is between -4 cents and 3 cents at a 95% level of confidence making this difference statistically insignificant because 0 is included in this interval. Therefore, this theory that gas prices are higher at gas stations located at stoplights is not supported by the data. 
+
+
+### Theory D Evaluation
+
+Theory D states that gas stations that has direct highway access have higher gas prices.
+
+```{r echo=FALSE}
+boot_highway_prices = do(10000) * diffmean(Price ~ Highway, data = resample(gasprices))
+
+ggplot() + geom_histogram(data=boot_highway_prices, aes(diffmean))
+
+confint(boot_highway_prices, level = 0.95)
+
+mean(Price~Highway, data=gasprices)
+
+lm_highway_price = lm(Price ~ Highway, data = gasprices)
+coef(lm_highway_price)
+```
+
+When looking at the data, the difference in gas prices between gas stations with direct highway access and no direct highway access is between roughly 1 cent and 8 cents at a 95% level of confidence making this difference statistically significant. The data supports that the gas stations with direct highway access do have higher gas prices. On average, gas stations with direct highway access charge 5 cents more than gas stations without direct highway access which in real life is a practically significant difference.
+
+
+### Theory E Evaluation
+
+Theory E states that Shell gas stations charge more than non-Shell gas stations.
+
+```{r echo=FALSE}
+gasprices <- mutate(gasprices, ShellBrand = Brand=='Shell')
+
+boot_brand_prices = do(10000) * diffmean(Price ~ ShellBrand, data = resample(gasprices))
+
+ggplot() + geom_histogram(data=boot_brand_prices, aes(diffmean))
+
+confint(boot_brand_prices, level=0.95)
+```
+
+When looking at the confidence interval for the difference in gas prices between Shell gas stations and non-Shell gas stations, the difference in prices are between - 1 cent and 6 cents making the difference statistically insignificant because 0 is included in the interval. Therefore, this theory is unsupported by the data. 
+
+
+## Problem 2
+
+### Part A
+```{r echo=FALSE}
+amg63 <- filter(sclass, year=='2011' & trim=='63 AMG')
+
+boot_amg63 = do(10000) * diffmean(mileage ~ condition, data=resample(amg63))
+
+ggplot() + geom_histogram(data=boot_amg63, aes(diffmean))
+
+confint(boot_amg63, level=0.95)
+```
+
+For 2011 S-class 63 AMGs that were hitting the used car market, the confidence interval of mileage of cars that were considered used and CPO is between -1054.28 miles and 9639.04 miles at a 95% level of confidence. Because 0 miles is included in the interval, this difference in mileage between used AMGs and non-used AMGs is statistically insignificant. 
+
+
+### Part B
+```{r echo=FALSE}
+sclass550 <- filter(sclass, year=='2014' & trim=='550')
+
+sclass550 <- mutate(sclass550, isBlack = color=='Black')
+
+boot_sclass550 = do(10000) * prop(~isBlack=='TRUE', data=resample(sclass550))
+
+ggplot() + geom_histogram(data=boot_sclass550, aes(prop_TRUE))
+
+confint(boot_sclass550, level=0.95)
+```
+
+The confidence interval for the proportion of 2014 S-Class 550s that were painted black at a 95% level of confidence is between 0.418 and 0.453. Because 0 is not included in this interval, this proportion of 2014 S-Class 550s being painted black is statistically significant. 
+
+## Problem 3
+
+### Part A
+
+#### Question
+
+The question to be answered is between the two shows 'Living with Ed' and 'My Name is Earl', does one show consistently produce a higher mean Q1-Happy response among viewers. 
+
+#### Approach
+
+In order to answer this question, I first used the filter() function in R to filter out the shows of 'Living with Ed' and 'My Name is Earl' from the original dataset of nbc_pilotsurvey. Afterwards I bootstrapped the data with 10000 samples calculating the difference in means of Q1-Happy response between the two shows. Using that bootstrapped data, I created a confidence interval at 95% confidence level.
+
+```{r echo=FALSE}
+parta <- filter(nbc, Show == 'Living with Ed' | Show == 'My Name is Earl')
+
+boot_q1happy = do(10000) * diffmean(Q1_Happy ~ Show, data = resample(parta))
+
+ggplot() + geom_histogram(data=boot_q1happy, aes(diffmean))
+
+confint(boot_q1happy, level = 0.95)
+```
+
+#### Results
+
+At a 95% confidence level the difference in mean Q1-Happy responses between the two shows 'Living with Ed' and 'My Name is Earl' is between -0.395 and 0.102. 
+
+#### Conclusion
+
+Because the confidence interval contains 0, it is statistically insignificant meaning that not one show consistently produces a higher mean Q1-Happy response among viewers.
+
+
+### Part B
+
+#### Question
+
+The question to be answered is between the two shows 'The Biggest Loser' and 'The Apprentice: Los Angeles', which reality show made people feel more annoyed. 
+
+#### Approach
+
+In order to answer this question, I first used the filter() function in R to filter out the shows of 'The Biggest Loser' and 'The Apprentice: Los Angeles' from the original dataset of nbc_pilotsurvey. Afterwards I bootstrapped the data with 10000 samples calculating the difference in means of Q1-Annoyed response between the two shows. Using that bootstrapped data, I created a confidence interval at 95% confidence level. Afterwards, I used the mean() function to simply compare the means of the two shows to see which one had a higher mean.
+
+```{r echo=FALSE}
+partb <- filter(nbc, Show=='The Biggest Loser' | Show=='The Apprentice: Los Angeles')
+
+boot_q1annoyed = do(10000) * diffmean(Q1_Annoyed ~ Show, data = resample(partb))
+
+ggplot() + geom_histogram(data=boot_q1annoyed, aes(diffmean))
+
+confint(boot_q1annoyed, level=0.95)
+
+mean(Q1_Annoyed ~ Show, data = partb)
+```
+
+#### Results
+
+At a 95% confidence level the difference in mean Q1-Annoyed responses between the two shows is between -0.525 and -0.021. The mean Q1-Annoyed response for 'The Apprentice: Los Angeles' with a value of 2.307 is higher than 'The Biggest Loser' with a mean value of 2.036.
+
+#### Conclusion
+
+Because the confidence interval doesn't contain 0, it is statistically significant meaning that there was a certain show that people felt more annoyed. To answer the question which show, just comparing the mean response between the two shows, 'The Apprentice: Los Angeles' has made people feel more annoyed. 
+
+
+### Part C
+
+#### Question
+
+The question to be answered is within the show "Dancing with the Stars", what proportion of American TV watchers is expected to give a response of 4 or greater to the Q2-Confusing question. 
+
+```{r echo=FALSE}
+partc <- filter(nbc, Show=='Dancing with the Stars')
+partc <- mutate(partc, ConfusingOver4 = Q2_Confusing>=4)
+
+boot_partc = do(10000) * prop(~ConfusingOver4=='TRUE', data=resample(partc))
+
+ggplot() + geom_histogram(data=boot_partc, aes(prop_TRUE))
+
+confint(boot_partc, level=0.95)
+```
+
+#### Approach
+
+In order to answer this question, I first used the filter() function in R to filter out the shows of 'Dancing with the Stars' from the original dataset of nbc_pilotsurvey. Afterwards I used mutate() to create a new variable checking if the Q2-Confusing question reponse was 4 or greater. Then, I bootstrapped the data with 10000 samples calculating the proportion of Q2-Confusing response that was 4 or greater. Using that bootstrapped data, I created a confidence interval at 95% confidence level and plotted the proportion that had the responses for the Q2-Confusing question as 4 or greater.
+
+#### Results
+
+The confidence interval of the proportion of Q2-Confusing question responses being 4 or greater is between 0.039 and 0.116 at a 95% level of confidence. 
+
+#### Conclusion
+
+Because 0 is not included in the confidence interval, the proportion range is statistically significant meaning that after watching the show 'Dancing with the Stars' we can expect roughly 3.9% to 11.6% of American TV watchers to give a response of 4 or greater on the Q2-Confusing question. 
+
+
+## Problem 4
+
+#### Question
+
+The question that is trying to be answered is does paying for search results justifiable from the extra people who visit these ads instead of going organic which is when companies don't pay for these ads or keywords and hope their links are visited often.
+
+```{r echo=FALSE}
+boot_revratio = do(10000) * diffprop(rev_ratio ~ adwords_pause, data=resample(ebay))
+
+ggplot() + geom_histogram(data=boot_revratio, aes(diffprop)) 
+
+confint(boot_revratio, level=0.95)
+```
+
+#### Approach
+
+In order to answer this question, I mainly used the diffprop() and do() functions to complete 10000 Monte Carlo bootstrap simulations. Afterwards, I plotted the difference in proportions as a histogram and used the confint() function to create the confidence interval at 95% confidence level.
+
+#### Results
+
+The confidence interval at 95% level of confidence is between -0.013 and 0.066 for the difference in revenue ratio between the treatment and control groups.
+
+#### Conclusion
+
+Because the confidence interval contains 0, it makes the revenue ratio statistcally insignificant meaning that paid search advertising is considered a waste money because the revenue ratio is roughly equal between the group that paused paid search advertising for one month and the other group that continuously did it.
